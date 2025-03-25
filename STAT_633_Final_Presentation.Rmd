@@ -1,0 +1,360 @@
+---
+title: "King County, Washington House Prices"
+author: "Ian Knightly, Ben Goldberg, and Ariel Lutati"
+date: "`r Sys.Date()`"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, include=FALSE, message=FALSE}
+library(readr)
+library(plotly)
+library(tidyverse)
+library(ggridges)
+library(gridExtra)
+library(dplyr)
+library(car)
+
+Sys.setenv("MAPBOX_TOKEN" = "pk.eyJ1IjoiaWtuaWdodGx5IiwiYSI6ImNsdWtkOGFqejBodHUyanFwcDdpb3p3d3MifQ.205T80MVLoDUpEPi_2kTDQ")
+
+data<-read_csv("preprocessed_Housing.csv")
+
+data<-data%>%mutate(blocks = as.factor(blocks), `zip code region` = as.factor(`zip code region`), `factor levels` = as.factor(`factor levels`))
+view(data)
+
+```
+
+
+## Introduction
+
+- Data set obtained from (Kaggle.com).
+
+- A comprehensive collection of property listings, encompassing various attributes such as the number of bedrooms, bathrooms, living area size, lot size, and location details in King County, WA.  
+
+-  Aids in identifying trends and patterns in the real estate market, assisting investors, real estate agents, and policymakers in making informed decisions. 
+
+- Also, serves as a foundation for developing recommendation systems for homebuyers, guiding them towards properties that align with their preferences and requirements. 
+
+
+## Research Question and Hypothesis
+
+-   **Research Question:** Does the ratio of bathrooms to bedrooms impact the price of a house?
+
+-   $H_0$ The mean price of houses with different bathroom to bedroom ratios are the same i.e. $\mu_1 = \mu_2$
+
+-   $H_a$ The mean price of houses with different bathroom to bedroom ratios are not the same i.e. $\mu_1 \neq \mu_2$.
+
+
+## Exploratory Data Analysis (EDA)
+
+
+- Log scaled price variable to ensure linearity among variables.
+
+- Added variables
+  - Bathroom-to-Bedroom Ratio: $\frac{bathroom}{bedroom}$.
+  - Zip Code Region: Split King County into two regions w/ zip codes 980 and 981. 
+  - Factor Levels: $\frac{bathroom}{bedroom} < 1$ and $\frac{bathroom}{bedroom} \geq 1$.
+  - Blocks: Split the distribution of the total square feet variable into 4 blocks corresponding to quantile.
+  
+- Outliers for bathroom, bedroom, and total square feet were normalized to fall within 3 standard deviations.
+- A Randomized Complete Block Design was performed on the data to test the difference in means between bath:bed.
+
+
+## EDA Continued
+
+```{r, echo=FALSE}
+# Histogram of Bedrooms
+plot_bedrooms <- plot_ly(data, x = ~bedrooms, type = 'histogram',
+                         name = "Bedrooms", marker = list(color = 'lightblue')) %>%
+                 layout(title = "Histogram of Bedrooms",
+                        xaxis = list(title = "Number of Bedrooms"),
+                        yaxis = list(title = "Count"))
+
+# Histogram of Bathrooms
+plot_bathrooms <- plot_ly(data, x = ~bathrooms, type = 'histogram',
+                          name = "Bathrooms", marker = list(color = 'mediumblue')) %>%
+                  layout(title = "Histogram of Bathrooms",
+                         xaxis = list(title = "Number of Bathrooms"),
+                         yaxis = list(title = "Count"))
+
+# Histogram of Total Square Feet (Living Area)
+plot_sqft_living <- plot_ly(data, x = ~sqft_living, type = 'histogram',
+                            name = "Sqft Living", marker = list(color = 'darkblue')) %>%
+                    layout(title = "Histogram of Total Square Feet (Living Area)",
+                           xaxis = list(title = "Total Square Feet"),
+                           yaxis = list(title = "Count"))
+
+# Combine the histograms into a single subplot
+combined_hist_plot <- subplot(plot_bedrooms, plot_bathrooms, plot_sqft_living, nrows = 3, shareX = FALSE, shareY = FALSE) %>%
+                      layout(title = "Histograms of Bedrooms, Bathrooms, and Total Square Feet")
+combined_hist_plot
+```
+
+## King County Map of Houses by Log Price
+
+```{r, echo=FALSE}
+#King County Map 
+plot_mapbox() %>% add_markers(data = data, x = ~long, y = ~lat,
+                              color = ~price,
+                              alpha = I(0.9),
+                              text = ~paste("The Log Price For This House is:",
+                                            paste0("$",round(price,3))),
+                              hoverinfo = "text") %>%
+  layout(mapbox = list(
+    center = list(lat = 47.53005, lon = -122.1139),
+    zoom = 9))
+
+```
+
+## Ridgeline Plot
+
+```{r, echo=FALSE, message=FALSE}
+#Ridgeline Plot
+data$fac <- factor(x=data$`factor levels`,
+                       levels = c("Factor Level 2", "Factor Level 1"),
+                        labels = c("Less Than 1","Greater Than or Equal to 1"))
+#By Zip Code Region
+data %>%
+  ggplot(aes(x = price, y = as.factor(fac),
+             fill = as.factor(fac))) +
+  geom_density_ridges(alpha = 0.7) +
+  stat_density_ridges(quantile_lines = TRUE, alpha = 0.75) +
+  scale_fill_manual(values = c("lightblue", "darkblue")) +
+  theme_ridges(font_size = 11) +
+  labs(x = "Log Scale Price", fill = "Bath:Bed", y = "", title = "Ridgeline Plot of Log Price by Zip Code Region") +
+  facet_wrap(vars(`zip code region`)) +
+  theme(axis.title.x = element_text(hjust = 0.5),
+        legend.key.size = unit(0.2, "cm"),
+        legend.title=element_text(size=10), 
+        legend.text=element_text(size=9))
+```
+
+## Shiny App
+
+<https://iasios.shinyapps.io/633_final_app/>
+
+## Box Plot
+
+```{r, echo=FALSE}
+boxplot<-ggplot(data, aes(x=`factor levels`, y=price)) +
+  geom_boxplot(aes(fill = blocks)) +
+  scale_fill_manual(values = c("lightblue",  "steelblue", "mediumblue", "darkblue")) +
+  scale_x_discrete(labels = c("More Bath:Bed", "Fewer Bath:Bed")) +
+  labs(
+    title="Boxplots of Bathroom to Bedroom Ratio",
+    x="Factor Levels",
+    y="Log Scale Price of a House",
+       fill = "Blocks") +
+  theme_minimal() 
+
+boxplot
+```
+
+## Scatter Plot
+
+```{r, echo=FALSE}
+scatterplot<-ggplot(data, aes(x=`factor levels`, y=price)) +
+  geom_point(aes(fill=blocks, color = bed_bth_ratio)) +
+  stat_summary(fun=mean, geom="point", shape=20, color="red", size=3) +
+  stat_summary(fun=mean, geom="text", aes(label=round(after_stat(y), digits=1)), vjust=0.5, hjust = -0.5, color="mediumblue") +
+  scale_x_discrete(labels = c("More Bath:Bed", "Fewer Bath:Bed")) +
+  labs(
+    title="Scatterplots of Bathroom to Bedroom Ratio",
+    x="Factor Levels",
+    y="Log Scale Price of a House",
+       color = "Bath:Bed") +
+  theme_minimal() + 
+  scale_fill_discrete(guide = "none") +
+  facet_wrap(~blocks)
+
+scatterplot
+```
+
+## ANOVA Test
+
+```{r, echo=FALSE}
+anova_model<-aov(price~`factor levels` + blocks, data = data)
+anova_summary<-summary(anova_model)
+anova_components<-anova_summary[[1]]
+anova_df<-as.data.frame(anova_components)
+knitr::kable(anova_df, caption = "ANOVA Summary")
+```
+
+<div style="display: flex: 40%; justify-content: space-between;">
+<div>
+
+- $\alpha$ = 0.05
+- P-Value < 0.0001
+- $F^*$ = 269.2438
+- F(0.95, 1, 3) = 10.1
+- $F^*$ > F and P-Value < $\alpha$
+- Conclude $H_a$
+
+</div>
+<div style="width: 75%;">
+
+## Bootstrap
+
+```{r, echo=FALSE}
+block1_fctr1<-data%>%filter(blocks == "Block 1", `factor levels` == "Factor Level 1")%>%select(price)%>%pull(price)
+block1_fctr2<-data%>%filter(blocks == "Block 1", `factor levels` == "Factor Level 2")%>%select(price)%>%pull(price)
+
+block2_fctr1<-data%>%filter(blocks == "Block 2", `factor levels` == "Factor Level 1")%>%select(price)%>%pull(price)
+block2_fctr2<-data%>%filter(blocks == "Block 2", `factor levels` == "Factor Level 2")%>%select(price)%>%pull(price)
+
+block3_fctr1<-data%>%filter(blocks == "Block 3", `factor levels` == "Factor Level 1")%>%select(price)%>%pull(price)
+block3_fctr2<-data%>%filter(blocks == "Block 3", `factor levels` == "Factor Level 2")%>%select(price)%>%pull(price)
+
+block4_fctr1<-data%>%filter(blocks == "Block 4", `factor levels` == "Factor Level 1")%>%select(price)%>%pull(price)
+block4_fctr2<-data%>%filter(blocks == "Block 4", `factor levels` == "Factor Level 2")%>%select(price)%>%pull(price)
+
+
+block1_original_diff<-mean(block1_fctr1) - mean(block1_fctr2)
+block2_original_diff<-mean(block2_fctr1) - mean(block2_fctr2)
+block3_original_diff<-mean(block3_fctr1) - mean(block3_fctr2)
+block4_original_diff<-mean(block4_fctr1) - mean(block4_fctr2)
+
+# Initialize a vector to store the differences
+block1_diff_means <- numeric(1000)
+block2_diff_means <- numeric(1000)
+block3_diff_means <- numeric(1000)
+block4_diff_means <- numeric(1000)
+
+
+# Bootstrap
+for(i in 1:1000){
+  # Create a bootstrap sample
+  
+  #Block 1 sample
+  block1_fctr1_bootstrap_sample <- block1_fctr1[sample(length(block1_fctr1), replace = TRUE) ]
+  block1_fctr2_bootstrap_sample <- block1_fctr2[sample(length(block1_fctr2), replace = TRUE) ]
+  
+  #Block 2 sample
+  block2_fctr1_bootstrap_sample <- block2_fctr1[sample(length(block2_fctr1), replace = TRUE) ]
+  block2_fctr2_bootstrap_sample <- block2_fctr2[sample(length(block2_fctr2), replace = TRUE) ]
+
+  #Block 3 sample
+  block3_fctr1_bootstrap_sample <- block3_fctr1[sample(length(block3_fctr1), replace = TRUE) ]
+  block3_fctr2_bootstrap_sample <- block3_fctr2[sample(length(block3_fctr2), replace = TRUE) ]
+
+  #Block 4 sample
+  block4_fctr1_bootstrap_sample <- block4_fctr1[sample(length(block4_fctr1), replace = TRUE) ]
+  block4_fctr2_bootstrap_sample <- block4_fctr2[sample(length(block4_fctr2), replace = TRUE) ]
+
+  #Block 1 array
+  block1_fctr1_btstrp<- block1_fctr1[block1_fctr1_bootstrap_sample]
+  block1_fctr2_btstrp<- block1_fctr2[block1_fctr2_bootstrap_sample]
+
+  #Block 2 array
+  block2_fctr1_btstrp<- block2_fctr1[block2_fctr1_bootstrap_sample ]
+  block2_fctr2_btstrp<- block2_fctr2[block2_fctr2_bootstrap_sample ]
+
+   #Block 3 array
+  block3_fctr1_btstrp<- block3_fctr1[block3_fctr1_bootstrap_sample ]
+  block3_fctr2_btstrp<- block3_fctr2[block3_fctr2_bootstrap_sample ]
+
+   #Block 4 array
+  block4_fctr1_btstrp<- block4_fctr1[block4_fctr1_bootstrap_sample ]
+  block4_fctr2_btstrp<- block4_fctr2[block4_fctr2_bootstrap_sample ]
+  
+  # Store the difference in means
+  block1_diff_means[i] <- mean(block1_fctr1_btstrp) - mean(block1_fctr2_btstrp)
+  block2_diff_means[i] <- mean(block2_fctr1_btstrp) - mean(block2_fctr2_btstrp)
+  block3_diff_means[i] <- mean(block3_fctr1_btstrp) - mean(block3_fctr2_btstrp)
+  block4_diff_means[i] <- mean(block4_fctr1_btstrp) - mean(block4_fctr2_btstrp)
+}
+
+# Calculate the Block 1 confidence interval
+block1_ci <- quantile(block1_diff_means, c(0.05, 0.95))
+# print(paste("Block 1 Original Difference: ", block1_original_diff))
+# print(paste("Block 1 95% Confidence Interval: [", block1_ci[1], ", ", block1_ci[2], "]"))
+
+# Calculate the Block 2 confidence interval
+block2_ci <- quantile(block2_diff_means, c(0.05, 0.95))
+# print(paste("Block 2 Original Difference: ", block2_original_diff))
+# print(paste("Block 2 95% Confidence Interval: [", block2_ci[1], ", ", block2_ci[2], "]"))
+
+# Calculate the Block 3 confidence interval
+block3_ci <- quantile(block3_diff_means, c(0.05, 0.95))
+# print(paste("Block 3 Original Difference: ", block3_original_diff))
+# print(paste("Block 3 95% Confidence Interval: [", block3_ci[1], ", ", block3_ci[2], "]"))
+
+# Calculate the Block 4 confidence interval
+block4_ci <- quantile(block4_diff_means, c(0.05, 0.95))
+# print(paste("Block 4 Original Difference: ", block4_original_diff))
+# print(paste("Block 4 95% Confidence Interval: [", block4_ci[1], ", ", block4_ci[2], "]"))
+
+# suppressMessages(library(ggplot2))
+# suppressMessages(library(plotly))
+
+histogram1<-ggplot(data.frame(x = block1_diff_means)) + 
+  geom_histogram(aes(x = x), color = "white", bins = 40) + 
+  geom_vline(xintercept = block1_ci, color = "blue") +
+  geom_vline(xintercept = block1_original_diff, color = "red") +
+  theme_minimal() + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + ggtitle("Block 1")
+ #  geom_text(aes(x = 0.109, y = 50, label = "Lower CI"), vjust = -1) +
+ #  geom_text(aes(x = 0.1185, y = 50, label = "Upper CI"), vjust = -1) +
+ # geom_text(aes(x = 0.1185, y = 40, label = "Original Difference"), vjust = -1) +
+ # labs(title = "Block 1 Bootstrap w/ 95% CI", x = "Difference in Means", y = "Density") 
+# p1<-ggplotly(histogram1)
+
+histogram2<-ggplot(data.frame(x = block2_diff_means)) + 
+  geom_histogram(aes(x = x), color = "white", bins = 40) + 
+  geom_vline(xintercept = block2_ci, color = "blue") +
+  geom_vline(xintercept = block2_original_diff, color = "red") +
+  theme_minimal() + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + ggtitle("Block 2")
+ #  geom_text(aes(x = 0.109, y = 50, label = "Lower CI"), vjust = -1) +
+ #  geom_text(aes(x = 0.1185, y = 50, label = "Upper CI"), vjust = -1) +
+ # geom_text(aes(x = 0.1185, y = 40, label = "Original Difference"), vjust = -1) +
+ # labs(title = "Block 2 Bootstrap w/ 95% CI", x = "Difference in Means", y = "Density") 
+# p2<-ggplotly(histogram2)
+
+histogram3<-ggplot(data.frame(x = block3_diff_means)) + 
+  geom_histogram(aes(x = x), color = "white", bins = 40) + 
+  geom_vline(xintercept = block3_ci, color = "blue") +
+  geom_vline(xintercept = block3_original_diff, color = "red") +
+  theme_minimal() + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + ggtitle("Block 3")
+ #  geom_text(aes(x = 0.109, y = 50, label = "Lower CI"), vjust = -1) +
+ #  geom_text(aes(x = 0.1185, y = 50, label = "Upper CI"), vjust = -1) +
+ # geom_text(aes(x = 0.1185, y = 40, label = "Original Difference"), vjust = -1) +
+  #labs(title = "Block 3 Bootstrap w/ 95% CI", x = "Difference in Means", y = "Density") 
+# p3<-ggplotly(histogram3)
+
+histogram4<-ggplot(data.frame(x = block4_diff_means)) + 
+  geom_histogram(aes(x = x), color = "white", bins = 40) + 
+  geom_vline(xintercept = block4_ci, color = "blue") +
+  geom_vline(xintercept = block4_original_diff, color = "red") +
+  theme_minimal() + 
+  theme(axis.title.x = element_blank(), axis.title.y = element_blank()) + ggtitle("Block 4")
+ #  geom_text(aes(x = 0.109, y = 50, label = "Lower CI"), vjust = -1) +
+ #  geom_text(aes(x = 0.1185, y = 50, label = "Upper CI"), vjust = -1) +
+ # geom_text(aes(x = 0.1185, y = 40, label = "Original Difference"), vjust = -1) +
+  #labs(title = "Block 4 Bootstrap w/ 95% CI", x = "Difference in Means", y = "Density") 
+# p4<-ggplotly(histogram4)
+
+grid.arrange(histogram1, histogram2, histogram3, histogram4, ncol=2, 
+             top = "Bootstrap  with 95% Confidence Interval: Blocks 1-4",
+             bottom = "Difference in Means",
+             left = "Density")
+```
+
+## Conclusion
+
+- There is significant difference between house prices concerning the number of bathrooms each house has.
+
+- Adding an extra half-bathroom could potentially increase the value of your home.
+
+- Construction contractors can net a greater profit by building homes with an additional bathroom. 
+
+- Real Estate agents can increase their commissions by selling homes with an additional bathroom.
+
+
+## References
+
+<https://www.kaggle.com/datasets/sukhmandeepsinghbrar/housing-price-dataset>
