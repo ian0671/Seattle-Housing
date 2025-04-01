@@ -10,7 +10,7 @@ The key steps in our analysis are as follows:
 ## Methodology
 ### 1. Ratio Calculation
 - Metric Definition:
-The primary metric is defined as:![image](https://github.com/user-attachments/assets/ddb05d40-6554-463a-8eb9-a2ed58cd9e63)
+The primary metric is defined as:    ![image](https://github.com/user-attachments/assets/ddb05d40-6554-463a-8eb9-a2ed58cd9e63)
 
 - Implementation:
 Using the raw dataset, each house’s ratio is computed to capture the amenity balance between bathrooms and bedrooms. This ratio serves as a continuous variable that informs subsequent grouping and testing steps.
