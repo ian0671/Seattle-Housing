@@ -36,3 +36,12 @@ blocks = ifelse(sqft_living < 7.258, "Block 1", ifelse(sqft_living >= 7.258 & sq
 filter_all(all_vars(!is.na(.)))%>%select(-yr_renovated)
 
 write_csv(data, "Preprocessed_Housing.csv")
+
+# Clean up: remove the downloaded zip file and unzipped directory
+file.remove(destination)
+
+if (!file.exists(destination)) {
+  cat("Zipped file successfully deleted.\n")
+} else {
+  cat("Failed to delete the zipped file.\n")
+}
