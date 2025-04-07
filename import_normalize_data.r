@@ -35,6 +35,36 @@ sqft_living = log(sqft_living), sqft_living15 = log(sqft_living15),
 blocks = ifelse(sqft_living < 7.258, "Block 1", ifelse(sqft_living >= 7.258 & sqft_living < 7.550, "Block 2", ifelse(sqft_living >= 7.550 & sqft_living < 7.832, "Block 3", "Block 4"))))%>%
 filter_all(all_vars(!is.na(.)))%>%select(-yr_renovated)
 
+# Remove outliers in the dataset
+remove_outliers <- function(data, column) {
+  # Calculate the mean and standard deviation
+  mean <- mean(data[[column]], na.rm = TRUE)
+  max_distance <- sd(data[[column]], na.rm = TRUE) * 3
+
+  # Calculate the absolute difference from the mean for each observation
+  abs_diff <- abs(data[[column]] - mean)
+
+  # Identify the outliers
+  outliers <- which(abs_diff >= max_distance)
+
+  # Count the number of outliers
+  count <- length(outliers)
+
+  # Remove the outliers from the data frame
+  data <- data[-outliers, ]
+
+  # Print the count
+  print(paste("Number of outliers removed:", count))
+
+  # Return the cleaned data
+  return(data)
+}
+
+data <- remove_outliers(data, "bathrooms")
+data <- remove_outliers(data, "bedrooms")
+data<-remove_outliers(data, "sqft_living")
+data<-remove_outliers(data, "sqft_living15")
+
 write_csv(data, "Preprocessed_Housing.csv")
 
 # Clean up: remove the downloaded zip file and unzipped directory
@@ -45,3 +75,4 @@ if (!file.exists(destination)) {
 } else {
   cat("Failed to delete the zipped file.\n")
 }
+
