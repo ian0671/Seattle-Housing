@@ -42,3 +42,7 @@ The bootstrap confidence intervals reinforced the F-test results, providing addi
 The combined analysis demonstrates that houses with a bathroom-to-bedroom ratio indicating equal to or more bathrooms than bedrooms are statistically priced higher across all examined price ranges. The robust approach—using a complete randomized block design, F-test, and bootstrap confidence intervals—ensures that our findings are both reliable and valid.
 
 This README provides a clear narrative of how the analysis was performed, ensuring that readers understand the data treatment, experimental design, and statistical testing that support our findings. 
+
+### Accessing the Data
+
+[Kaggle Getting Started](https://www.kaggle.com/docs/api#authentication)
