@@ -43,6 +43,7 @@ The combined analysis demonstrates that houses with a bathroom-to-bedroom ratio 
 
 This README provides a clear narrative of how the analysis was performed, ensuring that readers understand the data treatment, experimental design, and statistical testing that support our findings. 
 
-## Accessing the Data
+## References
 
 [Kaggle Getting Started](https://www.kaggle.com/docs/api#authentication)
+[Mapbox](https://www.mapbox.com/)
